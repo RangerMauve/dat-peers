@@ -1,0 +1,36 @@
+{
+  "name": "dat-peers",
+  "version": "1.0.0",
+  "description": "An implementation of Beaker's experimental datPeers API. Pass in a hyperdriv, and it does the rest",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RangerMauve/dat-peers.git"
+  },
+  "keywords": [
+    "dat",
+    "peers",
+    "datpeers",
+    "experimental",
+    "socket",
+    "beaker"
+  ],
+  "author": "rangermauve",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RangerMauve/dat-peers/issues"
+  },
+  "homepage": "https://github.com/RangerMauve/dat-peers#readme",
+  "dependencies": {
+    "@beaker/dat-ephemeral-ext-msg": "^1.0.2",
+    "@beaker/dat-session-data-ext-msg": "^1.1.1",
+    "@ungap/event-target": "^0.1.0"
+  },
+  "devDependencies": {
+    "hyperdiscovery": "^9.0.2",
+    "hyperdrive": "^9.14.5"
+  }
+}
