@@ -2,7 +2,7 @@ const EventTarget = require('@ungap/event-target')
 const { DatEphemeralExtMsg } = require('@beaker/dat-ephemeral-ext-msg')
 const { DatSessionDataExtMsg } = require('@beaker/dat-session-data-ext-msg')
 
-module.exports =
+const EXTENSIONS = ['ephemeral', 'session-data']
 
 class DatPeers extends EventTarget {
   constructor (archive) {
@@ -18,7 +18,7 @@ class DatPeers extends EventTarget {
       const type = 'message'
       const peer = this._getPeer(datPeer)
 
-      let message = payload
+      let message = payload.toString('utf8')
       try {
         message = JSON.parse(message)
       } catch (e) {
@@ -72,8 +72,8 @@ class DatPeers extends EventTarget {
   }
 
   _getPeer (peer) {
-    const id = peer.remoteId
-    const rawSessionData = this.datSessionDataExtMsg.getSessionData(this.archive, id)
+    const id = peer.remoteId.toString('hex')
+    const rawSessionData = this.datSessionDataExtMsg.getSessionData(this.archive, peer)
     let sessionData = null
     try {
       sessionData = JSON.parse(rawSessionData.toString('utf8'))
@@ -88,7 +88,8 @@ class DatPeers extends EventTarget {
   }
 
   async setSessionData (sessionData) {
-    return this.datSessionDataExtMsg.setLocalSessionData(this.archive, sessionData)
+    const data = Buffer.from(JSON.stringify(sessionData))
+    return this.datSessionDataExtMsg.setLocalSessionData(this.archive, data)
   }
 
   async list () {
@@ -136,3 +137,7 @@ class DatPeer {
     }
   }
 }
+
+DatPeers.EXTENSIONS = EXTENSIONS
+
+module.exports = DatPeers
