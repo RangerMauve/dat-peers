@@ -14,7 +14,9 @@ const hyperdrive = require('hyperdrive')
 
 const archive = hyperdrive()
 
-const discovery = hyperdiscovery(archive)
+const discovery = hyperdiscovery(archive, {
+  extensions: DatPeers.EXTENSIONS
+})
 
 const datPeers = new DatPeers(archive)
 
