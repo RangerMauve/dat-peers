@@ -1,6 +1,6 @@
 {
   "name": "dat-peers",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "An implementation of Beaker's experimental datPeers API. Pass in a hyperdriv, and it does the rest",
   "main": "index.js",
   "scripts": {
