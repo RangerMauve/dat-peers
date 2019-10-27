@@ -1,49 +1,59 @@
 const EventTarget = require('@ungap/event-target')
-const { DatEphemeralExtMsg } = require('@beaker/dat-ephemeral-ext-msg')
-const { DatSessionDataExtMsg } = require('@beaker/dat-session-data-ext-msg')
+const { EphemeralMessage } = require('@beaker/dat-ephemeral-ext-msg/encodings')
+const debug = require('debug')('dat-peers')
 
-const EXTENSIONS = ['ephemeral', 'session-data']
+const EPHEMERAL_TYPE = 'ephemeral'
+const SESSION_DATA_TYPE = 'session-data'
+const EXTENSIONS = [EPHEMERAL_TYPE, SESSION_DATA_TYPE]
 
 class DatPeers extends EventTarget {
   constructor (archive) {
     super()
     this.archive = archive
-    this.datEphemeralExtMsg = new DatEphemeralExtMsg()
-    this.datSessionDataExtMsg = new DatSessionDataExtMsg()
 
-    this.datEphemeralExtMsg.watchDat(archive)
-    this.datSessionDataExtMsg.watchDat(archive)
+    this.archive.on('extension', (name, message, datPeer) => {
+      if (name === EPHEMERAL_TYPE) {
+        try {
+          const decoded = EphemeralMessage.decode(message)
 
-    this.datEphemeralExtMsg.on('message', (dat, datPeer, { contentType, payload }) => {
-      const type = 'message'
-      const peer = this._getPeer(datPeer)
+          let { payload } = decoded
 
-      let message = payload.toString('utf8')
-      try {
-        message = JSON.parse(message)
-      } catch (e) {
-        // On well, it's not JSON I guess
+          try {
+            payload = JSON.parse(payload)
+          } catch (e) {
+            debug('Error parsing ephemeral message', e)
+          }
+
+          const type = 'message'
+          const peer = this._getPeer(datPeer)
+          const event = {
+            type, peer, message: payload
+          }
+
+          this.dispatchEvent(event)
+        } catch (e) {
+          debug('Error sending ephemeral message', e)
+        }
+      } else if (name === SESSION_DATA_TYPE) {
+        try {
+          const stringData = message.toString('utf8')
+          const sessionData = JSON.parse(stringData)
+          datPeer.sessionData = sessionData
+          const type = 'session-data'
+          const peer = this._getPeer(datPeer)
+          const event = { type, peer }
+          this.dispatchEvent(event)
+        } catch (e) {
+          debug('Error parsing session data', e)
+        }
       }
-
-      const event = {
-        type, peer, message
-      }
-
-      this.dispatchEvent(event)
-    })
-
-    this.datSessionDataExtMsg.on('session-data', (archiveOrHypercore, datPeer, sessionData) => {
-      const type = 'session-data'
-      const peer = this._getPeer(datPeer)
-
-      const event = {
-        type, peer
-      }
-
-      this.dispatchEvent(event)
     })
 
     this._on_peer_add = (datPeer) => {
+      if (this.sessionData) {
+        this.broadcastSessionData()
+      }
+
       const type = 'connect'
       const peer = this._getPeer(datPeer)
 
@@ -65,36 +75,31 @@ class DatPeers extends EventTarget {
       this.dispatchEvent(event)
     }
 
-    const hypercore = archive.metadata
-
-    hypercore.on('peer-add', this._on_peer_add)
-    hypercore.on('peer-remove', this._on_peer_remove)
+    archive.on('peer-add', this._on_peer_add)
+    archive.on('peer-remove', this._on_peer_remove)
   }
 
   _getPeer (peer) {
-    const id = peer.remoteId.toString('hex')
-    const rawSessionData = this.datSessionDataExtMsg.getSessionData(this.archive, peer)
-    let sessionData = null
-    try {
-      sessionData = JSON.parse(rawSessionData.toString('utf8'))
-    } catch (e) {
-      // Oh well
-    }
-    return new DatPeer(id, sessionData, this)
+    return new DatPeer(peer)
   }
 
   async getSessionData () {
-    return this.datSessionDataExtMsg.getLocalSessionData(this.archive)
+    return this.sessionData
   }
 
   async setSessionData (sessionData) {
-    const data = Buffer.from(JSON.stringify(sessionData))
-    return this.datSessionDataExtMsg.setLocalSessionData(this.archive, data)
+    const data = Buffer.from(JSON.stringify(sessionData), 'utf8')
+
+    this.sessionData = data
+    await this.broadcastSessionData()
+  }
+
+  async broadcastSessionData () {
+    this.archive.extension(SESSION_DATA_TYPE, this.sessionData)
   }
 
   async list () {
-    const hypercore = this.archive.metadata
-    const peers = hypercore.peers
+    const peers = this.peers
 
     return peers.map((peer) => this._getPeer(peer))
   }
@@ -109,31 +114,31 @@ class DatPeers extends EventTarget {
   async broadcast (message) {
     const contentType = 'application/json'
     const payload = JSON.stringify(message)
-    return this.datEphemeralExtMsg.broadcast(this.archive, { contentType, payload })
+    const data = { contentType, payload }
+    const encoded = EphemeralMessage.encode(data)
+    return this.archive.extension(EPHEMERAL_TYPE, encoded)
   }
 
   destroy () {
     const archive = this.archive
-    this.datEphemeralExtMsg.unwatchDat(archive)
-    this.datSessionDataExtMsg.unwatchDat(archive)
 
-    const hypercore = archive.metadata
-
-    hypercore.removeListener('peer-add', this._on_peer_add)
-    hypercore.removeListener('peer-remove', this._on_peer_remove)
+    archive.removeListener('peer-add', this._on_peer_add)
+    archive.removeListener('peer-remove', this._on_peer_remove)
   }
 }
 
 class DatPeer {
-  constructor (id, sessionData, datPeers) {
-    this.id = id.toString('hex')
+  constructor (peer) {
+    const id = peer.remoteId.toString('hex')
+    const sessionData = peer.sessionData
+
+    this.id = id
     this.sessionData = sessionData
     this.send = async (message) => {
       const contentType = 'application/json'
       const payload = JSON.stringify(message)
-      return datPeers.datEphemeralExtMsg.send(datPeers.archive, this.id, {
-        contentType, payload
-      })
+      const encoded = EphemeralMessage.encode({ payload, contentType })
+      peer.extension(EPHEMERAL_TYPE, encoded)
     }
   }
 }

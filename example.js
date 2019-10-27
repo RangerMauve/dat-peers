@@ -35,7 +35,7 @@ archive1.ready(() => {
         peer.send(message)
       })
 
-      datPeers2.addEventListener('message', ({message}) => {
+      datPeers2.addEventListener('message', ({ message }) => {
         console.log('Got response message', message)
       })
 

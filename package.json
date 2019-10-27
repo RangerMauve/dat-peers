@@ -26,8 +26,8 @@
   "homepage": "https://github.com/RangerMauve/dat-peers#readme",
   "dependencies": {
     "@beaker/dat-ephemeral-ext-msg": "^1.0.2",
-    "@beaker/dat-session-data-ext-msg": "^1.1.1",
-    "@ungap/event-target": "^0.1.0"
+    "@ungap/event-target": "^0.1.0",
+    "debug": "^4.1.1"
   },
   "devDependencies": {
     "hyperdiscovery": "^10.0.0",
